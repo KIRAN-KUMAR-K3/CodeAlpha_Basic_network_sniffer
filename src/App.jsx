@@ -55,7 +55,7 @@ const App = () => {
         try {
             // NOTE: Replace "YOUR_PASTED_API_KEY_HERE" with your actual Gemini API Key if running locally.
             // When running in Canvas, the key is automatically provided.
-            const apiKey = "AIzaSyB3N8oEdeM7joQPn-v1yKHNsef85VqJttc"; // IMPORTANT: Replace this with your actual key
+            const apiKey = "ENTER YOUR API KEY"; // IMPORTANT: Replace this with your actual key
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
