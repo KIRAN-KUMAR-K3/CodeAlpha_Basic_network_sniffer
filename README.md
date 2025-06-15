@@ -4,7 +4,9 @@ A Web-Based Learning Tool to Understand Network Traffic — Visually, Safely & I
 
 [![](https://img.shields.io/badge/Status-Active-brightgreen)]() 
 [![](https://img.shields.io/badge/Made%20With-React%20%2B%20Tailwind-blue)]() 
-[![](https://img.shields.io/github/license/KIRAN-KUMAR-K3/CodeAlpha_Basic_network_sniffer)]()
+[![](https://img.shields.io/badge/License-MIT-yellow)](LICENSE) 
+[![](https://img.shields.io/github/repo-size/KIRAN-KUMAR-K3/CodeAlpha_Basic_network_sniffer)]() 
+[![](https://img.shields.io/github/last-commit/KIRAN-KUMAR-K3/CodeAlpha_Basic_network_sniffer)]()
 
 ---
 
