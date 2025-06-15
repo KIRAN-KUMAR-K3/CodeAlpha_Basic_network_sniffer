@@ -1,0 +1,252 @@
+ import React, { useState, useEffect } from 'react';
+
+// Main App component
+const App = () => {
+    const [packets, setPackets] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    // Function to generate simulated packet data using the LLM
+    const generateSimulatedPackets = async () => {
+        setIsLoading(true);
+        setError(null);
+        setPackets([]); // Clear previous packets
+
+        // Prompt for the LLM to generate network packet data
+        const prompt = `Generate a list of 5-7 distinct network packet objects. Each object should represent a packet with realistic details, including MAC addresses, IP addresses, protocol (TCP, UDP, ICMP, ARP), port numbers (if applicable), TCP flags (if TCP), sequence/acknowledgement numbers (if TCP), and a simulated payload. For HTTPS traffic (port 443), the payload should be unreadable/encrypted-like. For other protocols, it can be a simple, short string. Include a mix of traffic types (e.g., HTTP, HTTPS, DNS, ARP).`;
+
+        let chatHistory = [];
+        chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+        // Define the JSON schema for the desired output
+        const payload = {
+            contents: chatHistory,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "ARRAY",
+                    items: {
+                        type: "OBJECT",
+                        properties: {
+                            "macSource": { "type": "STRING", "description": "Source MAC address, e.g., 'AA:BB:CC:DD:EE:FF'" },
+                            "macDestination": { "type": "STRING", "description": "Destination MAC address, e.g., '11:22:33:44:55:66'" },
+                            "etherType": { "type": "STRING", "description": "EtherType, e.g., '0x0800 (IPv4)', '0x0806 (ARP)'" },
+                            "sourceIP": { "type": "STRING", "description": "Source IP address, e.g., '192.168.1.1', '8.8.8.8'" },
+                            "destinationIP": { "type": "STRING", "description": "Destination IP address, e.g., '192.168.1.100', '172.217.160.142'" },
+                            "protocol": { "type": "STRING", "description": "Transport protocol, e.g., 'TCP', 'UDP', 'ICMP', 'ARP'" },
+                            "sourcePort": { "type": "NUMBER", "description": "Source port number (if applicable)" },
+                            "destinationPort": { "type": "NUMBER", "description": "Destination port number (if applicable)" },
+                            "flags": { "type": "STRING", "description": "TCP flags, e.g., 'SYN', 'ACK', 'PSH,ACK' (if protocol is TCP)" },
+                            "sequenceNumber": { "type": "NUMBER", "description": "TCP sequence number (if protocol is TCP)" },
+                            "acknowledgementNumber": { "type": "NUMBER", "description": "TCP acknowledgement number (if protocol is TCP)" },
+                            "payload": { "type": "STRING", "description": "Simulated payload content, unreadable for encrypted/binary" },
+                            "summary": { "type": "STRING", "description": "A brief summary for non-IP packets or generic description" }
+                        },
+                        "propertyOrdering": [
+                            "macSource", "macDestination", "etherType", "sourceIP", "destinationIP",
+                            "protocol", "sourcePort", "destinationPort", "flags", "sequenceNumber",
+                            "acknowledgementNumber", "payload", "summary"
+                        ]
+                    }
+                }
+            }
+        };
+
+        try {
+            // NOTE: Replace "YOUR_PASTED_API_KEY_HERE" with your actual Gemini API Key if running locally.
+            // When running in Canvas, the key is automatically provided.
+            const apiKey = "AIzaSyB3N8oEdeM7joQPn-v1yKHNsef85VqJttc"; // IMPORTANT: Replace this with your actual key
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorData.error.message || 'Unknown error'}`);
+            }
+
+            const result = await response.json();
+
+            if (result.candidates && result.candidates.length > 0 &&
+                result.candidates[0].content && result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0) {
+                const jsonText = result.candidates[0].content.parts[0].text;
+                try {
+                    const parsedPackets = JSON.parse(jsonText);
+                    setPackets(parsedPackets);
+                } catch (parseError) {
+                    setError(`Failed to parse JSON response: ${parseError.message}. Raw: ${jsonText}`);
+                    console.error("JSON parse error:", parseError, "Raw JSON:", jsonText);
+                }
+            } else {
+                setError("No content found in the API response. The LLM might have failed to generate valid data.");
+            }
+        } catch (err) {
+            setError(`Failed to generate packets: ${err.message}. Please ensure your API Key is correctly set and you have network connectivity.`);
+            console.error("Error during API call:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // ComponentDidMount equivalent to start sniffing on load
+    useEffect(() => {
+        // Only generate packets automatically on mount if no packets are present and not already loading/errored
+        if (packets.length === 0 && !isLoading && !error) {
+            generateSimulatedPackets();
+        }
+    }, []); // Run once on component mount
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-gray-100 font-inter p-4 sm:p-6 lg:p-8 rounded-lg shadow-2xl">
+            <header className="text-center mb-12">
+                <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-blue-400 drop-shadow-lg animate-pulse tracking-tight">
+                    Simulated Network Sniffer
+                </h1>
+                <p className="mt-4 text-lg sm:text-xl text-gray-300 max-w-2xl mx-auto">
+                    Explore network packet structure and data flow in a web-based simulation.
+                    Click 'Simulate Sniffing' to generate new packets.
+                </p>
+            </header>
+
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-12">
+                <button
+                    onClick={generateSimulatedPackets}
+                    disabled={isLoading}
+                    className="flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50 w-full sm:w-auto text-lg"
+                >
+                    {isLoading ? (
+                        <>
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Generating Packets...
+                        </>
+                    ) : (
+                        <>
+                            <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            Simulate Sniffing
+                        </>
+                    )}
+                </button>
+                <button
+                    onClick={() => { setPackets([]); setError(null); }} // Also clear error on clear
+                    className="flex items-center justify-center bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-red-500 focus:ring-opacity-50 w-full sm:w-auto text-lg"
+                >
+                    <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    Clear Packets
+                </button>
+            </div>
+
+            {error && (
+                <div className="bg-red-800 text-white p-5 rounded-lg mb-8 shadow-xl text-center border border-red-700">
+                    <p className="font-bold text-xl mb-2">Error Occurred:</p>
+                    <p className="text-md leading-relaxed">{error}</p>
+                    <p className="text-sm mt-3 opacity-80">Please check your API Key and network connection. If the issue persists, the model might have returned an unparseable response.</p>
+                </div>
+            )}
+
+            {packets.length > 0 && (
+                <div className="space-y-6 max-w-4xl mx-auto"> {/* Added max-width and auto margins */}
+                    {packets.map((packet, index) => (
+                        <PacketCard key={index} packet={packet} index={index} />
+                    ))}
+                </div>
+            )}
+
+            {packets.length === 0 && !isLoading && !error && (
+                <div className="text-center text-gray-400 text-xl mt-20 p-6 bg-gray-800 rounded-lg shadow-lg max-w-md mx-auto border border-gray-700">
+                    <p className="mb-3">
+                        <svg className="w-12 h-12 mx-auto text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.001 12.001 0 002.944 12c0 2.898 1.144 5.513 3.016 7.031a11.957 11.957 0 0110.064 0c1.872-1.518 3.016-4.133 3.016-7.031a12.001 12.001 0 00-3.326-8.016z"></path></svg>
+                        No packets sniffed yet.
+                    </p>
+                    <p>Click the "Simulate Sniffing" button above to generate and view simulated network traffic.</p>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// Component to display a single packet's details
+const PacketCard = ({ packet, index }) => {
+    const [isOpen, setIsOpen] = useState(false); // State to manage accordion open/close
+
+    return (
+        <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden border border-gray-700 transition-all duration-300 hover:shadow-2xl hover:border-blue-500">
+            <button
+                className="w-full text-left p-4 sm:p-6 bg-gray-700 hover:bg-gray-600 flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 rounded-t-lg transition duration-200"
+                onClick={() => setIsOpen(!isOpen)}
+            >
+                <h2 className="text-xl sm:text-2xl font-semibold text-blue-300 flex items-center">
+                    <span className="mr-3 text-gray-400">#{index + 1}</span>
+                    {packet.protocol || "Unknown"} <span className="mx-2 text-gray-500 text-lg sm:text-xl font-normal">&bull;</span>
+                    <span className="truncate max-w-[200px] sm:max-w-none">
+                        From: <span className="font-mono text-white text-md sm:text-lg">{packet.sourceIP || packet.macSource}</span>
+                    </span>
+                </h2>
+                <svg
+                    className={`w-7 h-7 text-blue-300 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+
+            {/* Conditional rendering with height transition */}
+            <div
+                className={`grid transition-all duration-500 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+            >
+                <div className="overflow-hidden"> {/* This div hides content when row is 0fr */}
+                    <div className="p-4 sm:p-6 text-gray-200 border-t border-gray-600">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm sm:text-base">
+                            <p><strong>MAC Source:</strong> <span className="font-mono text-green-300">{packet.macSource}</span></p>
+                            <p><strong>MAC Destination:</strong> <span className="font-mono text-red-300">{packet.macDestination}</span></p>
+                            <p><strong>EtherType:</strong> {packet.etherType}</p>
+                            {packet.sourceIP && <p><strong>Source IP:</strong> <span className="font-mono text-green-300">{packet.sourceIP}</span></p>}
+                            {packet.destinationIP && <p><strong>Destination IP:</strong> <span className="font-mono text-red-300">{packet.destinationIP}</span></p>}
+                            <p><strong>Protocol:</strong> <span className="font-bold text-yellow-300">{packet.protocol}</span></p>
+
+                            {/* Display port numbers only if they exist and are not null/undefined */}
+                            {(packet.sourcePort !== undefined && packet.sourcePort !== null) && <p><strong>Source Port:</strong> <span className="font-mono">{packet.sourcePort}</span></p>}
+                            {(packet.destinationPort !== undefined && packet.destinationPort !== null) && <p><strong>Destination Port:</strong> <span className="font-mono">{packet.destinationPort}</span></p>}
+
+                            {/* TCP specific details */}
+                            {packet.protocol === 'TCP' && (
+                                <>
+                                    {packet.flags && <p><strong>Flags:</strong> <span className="font-mono text-purple-300">{packet.flags}</span></p>}
+                                    {(packet.sequenceNumber !== undefined && packet.sequenceNumber !== null) && <p><strong>Sequence Number:</strong> <span className="font-mono">{packet.sequenceNumber}</span></p>}
+                                    {(packet.acknowledgementNumber !== undefined && packet.acknowledgementNumber !== null) && <p><strong>Acknowledgement Number:</strong> <span className="font-mono">{packet.acknowledgementNumber}</span></p>}
+                                </>
+                            )}
+
+                            {packet.summary && (
+                                <div className="col-span-full">
+                                    <p><strong>Summary:</strong> {packet.summary}</p>
+                                </div>
+                            )}
+
+                            {packet.payload && (
+                                <div className="col-span-full mt-4">
+                                    <p className="font-bold mb-2 text-blue-300">Payload:</p>
+                                    <pre className="bg-gray-900 p-4 rounded-md text-xs sm:text-sm whitespace-pre-wrap break-all overflow-auto max-h-48 border border-gray-600 font-mono leading-relaxed text-gray-300">
+                                        {packet.payload}
+                                    </pre>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default App;
+
