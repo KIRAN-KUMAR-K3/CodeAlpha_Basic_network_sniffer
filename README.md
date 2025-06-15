@@ -192,8 +192,7 @@ Let’s grow this educational tool together!
 
 ## 📃 License
 
-This project is licensed under the MIT License.
-See the LICENSE file for full terms.
+This project is licensed under the [MIT License](LICENSE), allowing open-source use, distribution, and modification with proper attribution. For full details, please refer to the LICENSE file.
 
 ---
 
