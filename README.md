@@ -34,7 +34,8 @@ Instead of capturing live traffic, this app uses Google’s Gemini AI to generat
 
 > Add a screenshot or GIF demo here
 > Example:
-> ![App Preview](demo.gif)
+> ![App Preview](img/GUI-1.png)
+> ![App Preview](img/GUI-2.png)
 
 ---
 
